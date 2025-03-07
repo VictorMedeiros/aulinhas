@@ -1,45 +1,65 @@
+// app/root.tsx
+import type { MetaFunction, LinksFunction } from "@remix-run/node";
 import {
   Links,
+  Link,
+  LiveReload,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react";
-import type { LinksFunction } from "@remix-run/node";
+import tailwindStylesUrl from "./tailwind.css?url";
 
-import "./tailwind.css";
-
-export const links: LinksFunction = () => [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous",
-  },
-  {
-    rel: "stylesheet",
-    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
-  },
+export const meta: MetaFunction = () => [
+  { charset: "utf-8" },
+  { title: "Aulinhas" },
+  { viewport: "width=device-width,initial-scale=1" },
 ];
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export const links: LinksFunction = () => {
+  return [{ rel: "stylesheet", href: tailwindStylesUrl }];
+};
+
+export default function App() {
   return (
     <html lang="en">
       <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
       </head>
-      <body>
-        {children}
+      <body className="bg-gray-100 text-gray-900">
+        <Navbar />
+        <main className="container mx-auto p-4">
+          <Outlet />
+        </main>
         <ScrollRestoration />
         <Scripts />
+        <LiveReload />
       </body>
     </html>
   );
 }
 
-export default function App() {
-  return <Outlet />;
+function Navbar() {
+  return (
+    <nav className="bg-white shadow">
+      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+        <a href="/" className="text-xl font-bold">
+          Aulinhas
+        </a>
+        <div>
+          <Link to="/students" className="px-3 hover:underline">
+            Students
+          </Link>
+          <Link to="/classes" className="px-3 hover:underline">
+            Classes
+          </Link>
+          <Link to="/report" className="px-3 hover:underline">
+            Report
+          </Link>
+        </div>
+      </div>
+    </nav>
+  );
 }

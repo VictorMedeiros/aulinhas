@@ -1,23 +1,15 @@
-// app/root.tsx
-import type { MetaFunction, LinksFunction } from "@remix-run/node";
-import {
-  Links,
-  Link,
-  LiveReload,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-} from "@remix-run/react";
+// app/root.jsx
+import { Links, Link, LiveReload, Meta, Outlet, Scripts, ScrollRestoration } from "@remix-run/react";
+import { json, redirect } from "@remix-run/node";
 import tailwindStylesUrl from "./tailwind.css?url";
 
-export const meta: MetaFunction = () => [
+export const meta = () => [
   { charset: "utf-8" },
   { title: "Aulinhas" },
   { viewport: "width=device-width,initial-scale=1" },
 ];
 
-export const links: LinksFunction = () => {
+export const links = () => {
   return [{ rel: "stylesheet", href: tailwindStylesUrl }];
 };
 

@@ -4,9 +4,18 @@ import { json, redirect } from "@remix-run/node";
 import { prisma } from "~/util/db.server";
 import { useState, useEffect } from "react";
 import StudentModal from "~/components/StudentModal";
+import ConfirmationModal from "~/components/ConfirmationModal";
 
 export const loader = async () => {
-  const students = await prisma.student.findMany();
+  const students = await prisma.student.findMany({
+    include: {
+      classes: {
+        orderBy: {
+          date: 'asc'
+        }
+      }
+    }
+  });
   return json({ students });
 };
 
@@ -84,6 +93,10 @@ export default function StudentsIndex() {
   const [isNewStudentModalOpen, setIsNewStudentModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState({
+    isOpen: false,
+    studentId: null
+  });
 
   useEffect(() => {
     if (fetcher.state === "idle" && isRefreshing) {
@@ -93,14 +106,25 @@ export default function StudentsIndex() {
   }, [fetcher.state, isRefreshing, navigate]);
 
   const handleDelete = (studentId) => {
-    const confirmed = window.confirm("Are you sure you want to delete this student?");
-    if (confirmed) {
+    setDeleteConfirmation({
+      isOpen: true,
+      studentId: studentId
+    });
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirmation.studentId) {
       setIsRefreshing(true);
       fetcher.submit(
-        { actionType: "delete", studentId }, 
+        { actionType: "delete", studentId: deleteConfirmation.studentId }, 
         { method: "post" }
       );
+      setDeleteConfirmation({ isOpen: false, studentId: null });
     }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmation({ isOpen: false, studentId: null });
   };
 
   const openStudentModal = (student, editMode = false) => {
@@ -185,6 +209,16 @@ export default function StudentsIndex() {
         onClose={() => setIsNewStudentModalOpen(false)}
         onSave={handleStudentUpdated}
         isNew={true}
+      />
+      
+      <ConfirmationModal 
+        isOpen={deleteConfirmation.isOpen}
+        onClose={cancelDelete}
+        onConfirm={confirmDelete}
+        title="Delete Student"
+        message="Are you sure you want to delete this student? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
       />
       
       <button 

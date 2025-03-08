@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFetcher } from '@remix-run/react';
 
-export default function StudentModal({ student, isOpen, onClose, onSave, isNew = false, isEditing = false }) {
+export default function ClassModal({ classItem, students, isOpen, onClose, onSave, isNew = false, isEditing = false }) {
   const modalRef = useRef(null);
   const [isEditingState, setIsEditing] = useState(isNew || isEditing);
   const fetcher = useFetcher();
@@ -52,6 +52,18 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
     }
   }, [isSubmitting, isSuccess, onSave, fetcher]);
 
+  const handleSubmit = (event) => {
+    // Get the date value from the form
+    const formData = new FormData(event.target);
+    const date = formData.get('date');
+    
+    console.log('CLIENT - Form submission - Raw date value:', date);
+    console.log('CLIENT - Form submission - Current browser datetime:', new Date().toString());
+    console.log('CLIENT - Form submission - All form data:', Object.fromEntries(formData.entries()));
+    
+    // Let the form submission continue normally
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     // Format as DD/MM/YYYY HH:mm
@@ -67,11 +79,19 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
   if (!isOpen) return null;
   
   const modalTitle = isNew 
-    ? 'Add New Student' 
-    : (isEditingState ? 'Edit Student' : student.name);
+    ? 'Add New Class' 
+    : (isEditingState ? 'Edit Class' : `Class for ${classItem?.student?.name || 'Student'}`);
   
-  const defaultName = isNew ? '' : student.name;
-  const defaultRate = isNew ? 100 : student.lessonRate;
+  const defaultStudentId = isNew ? '' : classItem.studentId;
+  
+  // Extract date and time from the class date
+  const classDate = isNew ? new Date() : new Date(classItem.date);
+  const defaultDate = classDate.toISOString().split('T')[0];
+  
+  // Format time as HH:MM
+  const hours = classDate.getHours().toString().padStart(2, '0');
+  const minutes = classDate.getMinutes().toString().padStart(2, '0');
+  const defaultTime = `${hours}:${minutes}`;
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
@@ -88,34 +108,48 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
         </div>
         
         {isEditingState || isNew ? (
-          <fetcher.Form method="post" action="/students">
+          <fetcher.Form method="post" action="/classes" onSubmit={handleSubmit}>
             <input type="hidden" name="actionType" value={isNew ? "create" : "update"} />
-            {!isNew && <input type="hidden" name="studentId" value={student?.id} />}
+            {!isNew && <input type="hidden" name="classId" value={classItem?.id} />}
             <div className="mb-4">
-              <label className="block mb-1">Name</label>
-              <input
-                type="text"
-                name="name"
-                defaultValue={defaultName}
+              <label className="block mb-1">Student</label>
+              <select
+                name="studentId"
+                defaultValue={defaultStudentId}
                 className="w-full border px-3 py-2"
                 required
                 disabled={isSubmitting}
-              />
+              >
+                <option value="">Select a student</option>
+                {students.map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="mb-4">
-              <label className="block mb-1">Lesson Rate</label>
-              <input
-                type="number"
-                name="lessonRate"
-                step="1"
-                defaultValue={defaultRate}
-                className="w-full border px-3 py-2"
-                required
-                min="1"
-                max="1000"
-                disabled={isSubmitting}
-              />
+              <label className="block mb-1">Date and Time</label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  name="date"
+                  defaultValue={defaultDate}
+                  className="flex-grow border px-3 py-2"
+                  required
+                  disabled={isSubmitting}
+                />
+                <input
+                  type="time"
+                  name="time"
+                  defaultValue={defaultTime}
+                  className="w-24 border px-3 py-2"
+                  required
+                  disabled={isSubmitting}
+                />
+              </div>
             </div>
+            
             <div className="flex justify-end gap-2">
               {!isNew && (
                 <button
@@ -140,35 +174,17 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
                     </svg>
                     Saving...
                   </>
-                ) : (isNew ? 'Create Student' : 'Save')}
+                ) : (isNew ? 'Create Class' : 'Save')}
               </button>
             </div>
           </fetcher.Form>
         ) : (
           <>
             <div className="mb-4">
-              <p className="text-gray-600">Lesson Rate: ${student.lessonRate}</p>
-              
-              {/* Classes section */}
-              {student.classes && student.classes.length > 0 ? (
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-3">Classes</h3>
-                  <div className="max-h-64 overflow-y-auto">
-                    <ul className="divide-y divide-gray-200">
-                      {student.classes.map((classItem) => (
-                        <li key={classItem.id} className="py-2">
-                          <p className="text-gray-800">{formatDate(classItem.date)}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold mb-3">Classes</h3>
-                  <p className="text-gray-500">No classes scheduled</p>
-                </div>
-              )}
+              <p className="text-gray-600">Student: {classItem.student?.name}</p>
+              <p className="text-gray-600">
+                Date & Time: {formatDate(classItem.date)}
+              </p>
             </div>
             <div className="flex justify-end gap-2">
               <button

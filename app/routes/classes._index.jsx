@@ -41,8 +41,9 @@ export const action = async ({ request }) => {
     const studentId = form.get("studentId");
     const date = form.get("date");
     const time = form.get("time");
+    const lessonRate = form.get("lessonRate") ? parseInt(form.get("lessonRate"), 10) : null;
 
-    console.log("SERVER - Creating class - Raw form data:", { studentId, date, time });
+    console.log("SERVER - Creating class - Raw form data:", { studentId, date, time, lessonRate });
     console.log("SERVER - Creating class - Server datetime:", new Date().toString());
     
     if (typeof studentId !== "string" || typeof date !== "string" || typeof time !== "string") {
@@ -64,7 +65,8 @@ export const action = async ({ request }) => {
       const newClass = await prisma.class.create({
         data: { 
           studentId, 
-          date: dateObj
+          date: dateObj,
+          lessonRate // Add the lessonRate to the class creation
         },
       });
       
@@ -87,8 +89,9 @@ export const action = async ({ request }) => {
     const studentId = form.get("studentId");
     const date = form.get("date");
     const time = form.get("time");
+    const lessonRate = form.get("lessonRate") ? parseInt(form.get("lessonRate"), 10) : null;
 
-    console.log("SERVER - Updating class - Raw form data:", { classId, studentId, date, time });
+    console.log("SERVER - Updating class - Raw form data:", { classId, studentId, date, time, lessonRate });
     console.log("SERVER - Updating class - Server datetime:", new Date().toString());
     
     if (typeof classId !== "string" || typeof studentId !== "string" || 
@@ -112,7 +115,8 @@ export const action = async ({ request }) => {
         where: { id: classId },
         data: { 
           studentId, 
-          date: dateObj
+          date: dateObj,
+          lessonRate // Add the lessonRate to the class update
         },
       });
       
@@ -227,6 +231,11 @@ export default function ClassesIndex() {
             >
               <p className="font-semibold text-lg">{classItem.student.name}</p>
               <p className="text-sm text-gray-600">{formatDate(classItem.date)}</p>
+              {classItem.lessonRate && classItem.lessonRate !== classItem.student.lessonRate && (
+                <p className="text-sm text-blue-500">
+                  Custom Rate: {classItem.lessonRate}
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
               <button

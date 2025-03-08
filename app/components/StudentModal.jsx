@@ -120,7 +120,7 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
               {!isNew && (
                 <button
                   type="button"
-                  onClick={() => setIsEditing(false)}
+                  onClick={() => onClose()}
                   className="px-4 py-2 border rounded"
                   disabled={isSubmitting}
                 >
@@ -157,7 +157,13 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
                     <ul className="divide-y divide-gray-200">
                       {student.classes.map((classItem) => (
                         <li key={classItem.id} className="py-2">
-                          <p className="text-gray-800">{formatDate(classItem.date)}</p>
+                          <p className="text-gray-800">{formatDate(classItem.date)}
+                            {classItem.lessonRate && classItem.lessonRate !== student.lessonRate && (
+                              <span className="ml-2 text-blue-500 text-sm">
+                                Custom Rate: ${classItem.lessonRate}
+                              </span>
+                            )}
+                          </p>
                         </li>
                       ))}
                     </ul>

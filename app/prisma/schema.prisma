@@ -19,4 +19,5 @@ model Class {
   studentId  String
   student    Student  @relation(fields: [studentId], references: [id])
   date       DateTime
+  lessonRate Int?     // Nullable lesson rate that can override student's rate
 }

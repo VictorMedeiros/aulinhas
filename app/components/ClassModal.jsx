@@ -5,6 +5,25 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
   const modalRef = useRef(null);
   const [isEditingState, setIsEditing] = useState(isNew || isEditing);
   const fetcher = useFetcher();
+  const [lessonRate, setLessonRate] = useState(classItem?.lessonRate || '');
+  const [selectedStudentId, setSelectedStudentId] = useState(isNew ? '' : classItem?.studentId);
+  
+  // Effect to update the lesson rate when a student is selected
+  useEffect(() => {
+    if (selectedStudentId && students) {
+      const selectedStudent = students.find(s => s.id === selectedStudentId);
+      if (selectedStudent && (isNew || !classItem?.lessonRate)) {
+        setLessonRate(selectedStudent.lessonRate);
+      }
+    }
+  }, [selectedStudentId, students, isNew, classItem]);
+  
+  // Initialize lesson rate from class or student
+  useEffect(() => {
+    if (!isNew && classItem) {
+      setLessonRate(classItem.lessonRate || '');
+    }
+  }, [isNew, classItem]);
   
   useEffect(() => {
     if (isOpen) {
@@ -93,6 +112,11 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
   const minutes = classDate.getMinutes().toString().padStart(2, '0');
   const defaultTime = `${hours}:${minutes}`;
   
+  const handleStudentChange = (e) => {
+    const newStudentId = e.target.value;
+    setSelectedStudentId(newStudentId);
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
       <div ref={modalRef} className="bg-white rounded-lg p-6 w-full max-w-md">
@@ -116,6 +140,7 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
               <select
                 name="studentId"
                 defaultValue={defaultStudentId}
+                onChange={handleStudentChange}
                 className="w-full border px-3 py-2"
                 required
                 disabled={isSubmitting}
@@ -148,6 +173,27 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
                   disabled={isSubmitting}
                 />
               </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-1">Lesson Rate</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  name="lessonRate"
+                  value={lessonRate}
+                  onChange={(e) => setLessonRate(e.target.value)}
+                  className="w-full border px-3 py-2"
+                  placeholder="Override default rate"
+                  disabled={isSubmitting}
+                />
+              </div>
+              {selectedStudentId && (
+                <p className="text-sm text-gray-500 mt-1">
+                  {students.find(s => s.id === selectedStudentId)?.name}'s default rate: 
+                  {students.find(s => s.id === selectedStudentId)?.lessonRate}
+                </p>
+              )}
             </div>
             
             <div className="flex justify-end gap-2">
@@ -184,6 +230,11 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
               <p className="text-gray-600">Student: {classItem.student?.name}</p>
               <p className="text-gray-600">
                 Date & Time: {formatDate(classItem.date)}
+              </p>
+              <p className="text-gray-600">
+                Lesson Rate: {classItem.lessonRate || classItem.student?.lessonRate || 'Not set'}
+                {classItem.lessonRate !== classItem.student?.lessonRate && classItem.student?.lessonRate && 
+                  ` (Student's default: ${classItem.student.lessonRate})`}
               </p>
             </div>
             <div className="flex justify-end gap-2">

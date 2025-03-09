@@ -5,6 +5,7 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
   const modalRef = useRef(null);
   const [isEditingState, setIsEditing] = useState(isNew || isEditing);
   const fetcher = useFetcher();
+  const [age, setAge] = useState(student?.age || "");
   
   useEffect(() => {
     if (isOpen) {
@@ -72,6 +73,7 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
   
   const defaultName = isNew ? '' : student.name;
   const defaultRate = isNew ? 100 : student.lessonRate;
+  const defaultAge = isNew ? '' : student.age;
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
@@ -113,6 +115,20 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
                 required
                 min="1"
                 max="1000"
+                disabled={isSubmitting}
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block mb-1">Age</label>
+              <input
+                type="number"
+                name="age"
+                step="1"
+                onChange={(e) => setAge(e.target.value)}
+                defaultValue={defaultAge}
+                className="w-full border px-3 py-2"
+                min="1"
+                max="100"
                 disabled={isSubmitting}
               />
             </div>

@@ -36,6 +36,7 @@ export const action = async ({ request }) => {
   else if (actionType === "create") {
     const name = form.get("name");
     const lessonRate = form.get("lessonRate");
+    const age = form.get("age");
 
     if (typeof name !== "string" || typeof lessonRate !== "string") {
       return json({ success: false, error: "Invalid data." }, { status: 400 });
@@ -43,7 +44,7 @@ export const action = async ({ request }) => {
 
     try {
       const newStudent = await prisma.student.create({
-        data: { name, lessonRate: parseInt(lessonRate) },
+        data: { name, lessonRate: parseInt(lessonRate), age: age ? parseInt(age) : null },
       });
       return json({ success: true, student: newStudent });
     } catch (error) {
@@ -59,6 +60,7 @@ export const action = async ({ request }) => {
     const studentId = form.get("studentId");
     const name = form.get("name");
     const lessonRate = form.get("lessonRate");
+    const age = form.get("age");
 
     if (typeof studentId !== "string" || typeof name !== "string" || typeof lessonRate !== "string") {
       return json({ success: false, error: "Invalid data." }, { status: 400 });
@@ -69,7 +71,8 @@ export const action = async ({ request }) => {
         where: { id: studentId },
         data: { 
           name, 
-          lessonRate: parseInt(lessonRate) 
+          lessonRate: parseInt(lessonRate), 
+          age: age ? parseInt(age) : null
         },
       });
       return json({ success: true, student: updatedStudent });
@@ -165,8 +168,8 @@ export default function StudentsIndex() {
               className="flex-grow cursor-pointer" 
               onClick={() => openStudentModal(student)}
             >
-              <p className="font-semibold text-lg">{student.name}</p>
-              <p className="text-sm text-gray-600">Lesson Rate: {student.lessonRate}</p>
+              <p className="font-semibold text-lg">{student.name} {student.age ? `(Idade: ${student.age})` : ""}</p>
+              <p className="text-sm text-gray-600">Lesson Rate: ${student.lessonRate}</p>
             </div>
             <div className="flex gap-2">
               <button

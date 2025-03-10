@@ -16,13 +16,14 @@
     "@remix-run/react": "^2.10.3",
     "@remix-run/serve": "^2.10.3",
     "@tailwindcss/postcss7-compat": "^2.2.17",
+    "date-fns": "^2.30.0",
     "isbot": "^4.1.0",
+    "prisma": "^6.4.1",
     "react": "^18.2.0",
+    "react-big-calendar": "^1.8.4",
     "react-dom": "^18.2.0",
     "remix-auth": "^3.7.0",
-    "remix-auth-google": "^2.0.0",
-    "react-big-calendar": "^1.8.4",
-    "date-fns": "^2.30.0"
+    "remix-auth-google": "^2.0.0"
   },
   "devDependencies": {
     "@remix-run/dev": "^2.10.3",

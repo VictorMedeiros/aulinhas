@@ -1,6 +1,25 @@
-node_modules
-
-/.cache
-/build
+# Environment variables
 .env
+.env.*
+!.env.example
+
+# Dependency directories
+node_modules
+.cache
+
+# Build directory
+/build
 /public/build
+.netlify
+
+# Database files
+prisma/*.db
+prisma/*.db-journal
+
+# OS and editor files
+.DS_Store
+*.log
+.idea
+.vscode
+*.swp
+*.swo

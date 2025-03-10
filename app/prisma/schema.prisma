@@ -7,18 +7,28 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  googleId      String?   @unique
+  students      Student[]
+}
+
 model Student {
   id         String   @id @default(uuid())
   name       String
   lessonRate Int
   age        Int?
+  userId     String   // Foreign key to User
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   classes    Class[]
 }
 
 model Class {
   id         String   @id @default(uuid())
   studentId  String
-  student    Student  @relation(fields: [studentId], references: [id])
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   date       DateTime
   lessonRate Int?     // Nullable lesson rate that can override student's rate
 }

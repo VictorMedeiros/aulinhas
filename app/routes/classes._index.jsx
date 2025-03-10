@@ -4,33 +4,58 @@ import { prisma } from "~/util/db.server";
 import { useState, useEffect } from "react";
 import ConfirmationModal from "~/components/ConfirmationModal";
 import ClassModal from "~/components/ClassModal";
+import { requireAuth } from "~/services/auth.server";
 
-export const loader = async () => {
+export const loader = async ({ request }) => {
+  // Require authentication and get the user
+  const user = await requireAuth(request);
+  
+  // Fetch classes for students that belong to the authenticated user
   const [classes, students] = await Promise.all([
     prisma.class.findMany({
       include: {
         student: true,
       },
+      where: {
+        student: {
+          userId: user.id
+        }
+      },
       orderBy: {
-        date: 'asc', // Changed from 'desc' to 'asc' to show classes in ascending order by time
+        date: 'asc',
       },
     }),
-    prisma.student.findMany(),
+    prisma.student.findMany({
+      where: {
+        userId: user.id
+      }
+    }),
   ]);
 
-  return json({ classes, students });
+  return json({ classes, students, user });
 };
 
 export const action = async ({ request }) => {
+  // Require authentication and get the user
+  const user = await requireAuth(request);
+  
   const form = await request.formData();
   const actionType = form.get("actionType");
-  
-  console.log("Action type:", actionType); // Add logging for debugging
   
   // Handle delete operation
   if (actionType === "delete" || form.has("deleteId")) {
     const deleteId = form.get("deleteId") || form.get("classId");
     if (typeof deleteId === "string") {
+      // Verify the class belongs to a student owned by the user
+      const classItem = await prisma.class.findUnique({
+        where: { id: deleteId },
+        include: { student: true }
+      });
+      
+      if (!classItem || classItem.student.userId !== user.id) {
+        return json({ success: false, error: "Unauthorized" }, { status: 403 });
+      }
+      
       await prisma.class.delete({ where: { id: deleteId } });
       return json({ success: true });
     }
@@ -42,40 +67,38 @@ export const action = async ({ request }) => {
     const date = form.get("date");
     const time = form.get("time");
     const lessonRate = form.get("lessonRate") ? parseInt(form.get("lessonRate"), 10) : null;
-
-    console.log("SERVER - Creating class - Raw form data:", { studentId, date, time, lessonRate });
-    console.log("SERVER - Creating class - Server datetime:", new Date().toString());
     
     if (typeof studentId !== "string" || typeof date !== "string" || typeof time !== "string") {
       return json({ success: false, error: "Invalid data." }, { status: 400 });
+    }
+
+    // Verify student belongs to user
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+      select: { userId: true }
+    });
+    
+    if (!student || student.userId !== user.id) {
+      return json({ success: false, error: "Unauthorized" }, { status: 403 });
     }
 
     try {
       // Split date and time into components
       const [year, month, day] = date.split('-').map(Number);
       const [hours, minutes] = time.split(':').map(Number);
-      
-      console.log("SERVER - Date components:", { year, month, day, hours, minutes });
-      
-      // Create a date with both date and time components
       const dateObj = new Date(year, month - 1, day, hours, minutes, 0);
-      console.log("SERVER - Final datetime being sent to DB:", dateObj.toString());
-      console.log("SERVER - Final datetime ISO string:", dateObj.toISOString());
       
       const newClass = await prisma.class.create({
         data: { 
           studentId, 
           date: dateObj,
-          lessonRate // Add the lessonRate to the class creation
+          lessonRate
         },
       });
       
-      console.log("SERVER - Class created in DB:", newClass);
-      console.log("SERVER - Datetime stored in DB:", new Date(newClass.date).toString());
-      
       return json({ success: true, class: newClass });
     } catch (error) {
-      console.error("Error creating class:", error); // Add error logging
+      console.error("Error creating class:", error);
       return json({ 
         success: false, 
         error: "Failed to create class" 
@@ -90,42 +113,46 @@ export const action = async ({ request }) => {
     const date = form.get("date");
     const time = form.get("time");
     const lessonRate = form.get("lessonRate") ? parseInt(form.get("lessonRate"), 10) : null;
-
-    console.log("SERVER - Updating class - Raw form data:", { classId, studentId, date, time, lessonRate });
-    console.log("SERVER - Updating class - Server datetime:", new Date().toString());
     
     if (typeof classId !== "string" || typeof studentId !== "string" || 
         typeof date !== "string" || typeof time !== "string") {
       return json({ success: false, error: "Invalid data." }, { status: 400 });
     }
 
+    // Verify both class and student belong to user
+    const [classItem, student] = await Promise.all([
+      prisma.class.findUnique({
+        where: { id: classId },
+        include: { student: { select: { userId: true } } }
+      }),
+      prisma.student.findUnique({
+        where: { id: studentId },
+        select: { userId: true }
+      })
+    ]);
+    
+    if (!classItem || classItem.student.userId !== user.id || 
+        !student || student.userId !== user.id) {
+      return json({ success: false, error: "Unauthorized" }, { status: 403 });
+    }
+
     try {
-      // Split date and time into components
       const [year, month, day] = date.split('-').map(Number);
       const [hours, minutes] = time.split(':').map(Number);
-      
-      console.log("SERVER - Date components:", { year, month, day, hours, minutes });
-      
-      // Create a date with both date and time components
       const dateObj = new Date(year, month - 1, day, hours, minutes, 0);
-      console.log("SERVER - Final datetime being sent to DB:", dateObj.toString());
-      console.log("SERVER - Final datetime ISO string:", dateObj.toISOString());
       
       const updatedClass = await prisma.class.update({
         where: { id: classId },
         data: { 
           studentId, 
           date: dateObj,
-          lessonRate // Add the lessonRate to the class update
+          lessonRate
         },
       });
       
-      console.log("SERVER - Class updated in DB:", updatedClass);
-      console.log("SERVER - Datetime stored in DB:", new Date(updatedClass.date).toString());
-      
       return json({ success: true, class: updatedClass });
     } catch (error) {
-      console.error("Error updating class:", error); // Add error logging
+      console.error("Error updating class:", error);
       return json({ 
         success: false, 
         error: "Failed to update class" 

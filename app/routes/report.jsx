@@ -3,19 +3,28 @@ import { useLoaderData } from '@remix-run/react';
 import { json } from '@remix-run/node';
 import { prisma } from '~/util/db.server';
 import MonthlyReportModal from '~/components/MonthlyReportModal';
+import { requireAuth } from '~/services/auth.server';
 
-export const loader = async () => {
-  // Fetch all classes with student information
+export const loader = async ({ request }) => {
+  // Require authentication and get the user
+  const user = await requireAuth(request);
+  
+  // Fetch all classes with student information for the authenticated user
   const classes = await prisma.class.findMany({
     include: {
       student: true,
+    },
+    where: {
+      student: {
+        userId: user.id
+      }
     },
     orderBy: {
       date: 'asc',
     },
   });
 
-  return json({ classes });
+  return json({ classes, user });
 };
 
 export default function Report() {

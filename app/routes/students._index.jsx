@@ -5,9 +5,17 @@ import { prisma } from "~/util/db.server";
 import { useState, useEffect } from "react";
 import StudentModal from "~/components/StudentModal";
 import ConfirmationModal from "~/components/ConfirmationModal";
+import { requireAuth } from "~/services/auth.server";
 
-export const loader = async () => {
+export const loader = async ({ request }) => {
+  // Require authentication and get the user
+  const user = await requireAuth(request);
+  
+  // Fetch only students belonging to the authenticated user
   const students = await prisma.student.findMany({
+    where: {
+      userId: user.id
+    },
     include: {
       classes: {
         orderBy: {
@@ -16,10 +24,12 @@ export const loader = async () => {
       }
     }
   });
-  return json({ students });
+  return json({ students, user });
 };
 
 export const action = async ({ request }) => {
+  // Require authentication and get the user
+  const user = await requireAuth(request);
   const form = await request.formData();
   const actionType = form.get("actionType");
   
@@ -27,6 +37,16 @@ export const action = async ({ request }) => {
   if (actionType === "delete" || form.has("deleteId")) {
     const deleteId = form.get("deleteId") || form.get("studentId");
     if (typeof deleteId === "string") {
+      // Ensure the student belongs to the authenticated user
+      const student = await prisma.student.findUnique({
+        where: { id: deleteId },
+        select: { userId: true }
+      });
+      
+      if (!student || student.userId !== user.id) {
+        return json({ success: false, error: "Unauthorized" }, { status: 403 });
+      }
+      
       await prisma.student.delete({ where: { id: deleteId } });
       return json({ success: true });
     }
@@ -44,7 +64,12 @@ export const action = async ({ request }) => {
 
     try {
       const newStudent = await prisma.student.create({
-        data: { name, lessonRate: parseInt(lessonRate), age: age ? parseInt(age) : null },
+        data: { 
+          name, 
+          lessonRate: parseInt(lessonRate), 
+          age: age ? parseInt(age) : null,
+          userId: user.id // Associate with the authenticated user
+        },
       });
       return json({ success: true, student: newStudent });
     } catch (error) {
@@ -64,6 +89,16 @@ export const action = async ({ request }) => {
 
     if (typeof studentId !== "string" || typeof name !== "string" || typeof lessonRate !== "string") {
       return json({ success: false, error: "Invalid data." }, { status: 400 });
+    }
+
+    // Verify ownership of the student
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+      select: { userId: true }
+    });
+    
+    if (!student || student.userId !== user.id) {
+      return json({ success: false, error: "Unauthorized" }, { status: 403 });
     }
 
     try {

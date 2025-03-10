@@ -3,6 +3,16 @@ export default {
   content: [
     "./app/**/*.{js,ts,jsx,tsx}", // This will include all files in the app directory
   ],
+  safelist: [
+    'bg-blue-500',
+    'bg-green-500',
+    'bg-purple-500',
+    'bg-yellow-500',
+    'bg-pink-500',
+    'bg-indigo-500',
+    'bg-red-500',
+    'bg-teal-500'
+  ],
   theme: {
     extend: {
       colors: {

@@ -1,0 +1,133 @@
+/* Base calendar styles */
+.rbc-calendar {
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+/* Calendar Header */
+.rbc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+/* Calendar Grid */
+.rbc-month-view {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.rbc-day-bg {
+  background: #fff;
+}
+
+.rbc-day-bg.rbc-today {
+  background: #f3f9ff;
+}
+
+.rbc-off-range-bg {
+  background: #f9fafb;
+}
+
+/* Time Grid */
+.rbc-time-view {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.rbc-time-header {
+  border-bottom: 1px solid #ddd;
+}
+
+.rbc-timeslot-group {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.rbc-time-slot {
+  border-top: none;
+}
+
+/* Events */
+.rbc-event {
+  border: none;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-weight: 500;
+}
+
+.rbc-event-label {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rbc-event-content {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Current time indicator */
+.rbc-current-time-indicator {
+  height: 2px;
+  background-color: #ec4899;
+  position: absolute;
+  z-index: 3;
+  left: 0;
+  right: 0;
+}
+
+/* Custom color variables */
+:root {
+  --blue-500: #3b82f6;
+  --green-500: #10b981;
+  --purple-500: #8b5cf6;
+  --yellow-500: #f59e0b;
+  --pink-500: #ec4899;
+  --indigo-500: #6366f1;
+  --red-500: #ef4444;
+  --teal-500: #14b8a6;
+}
+
+/* Time Grid in Week and Day views */
+.rbc-time-view .rbc-time-gutter {
+  text-align: right;
+  padding-right: 8px;
+}
+
+/* Cell selection styles */
+.rbc-day-slot .rbc-background-event {
+  opacity: 0.75;
+}
+
+.rbc-day-slot .rbc-selected-cell {
+  background-color: rgba(66, 153, 225, 0.2);
+}
+
+.rbc-slot-selection {
+  background-color: rgba(66, 153, 225, 0.2);
+  border: 1px solid #3182ce;
+}
+
+/* Make calendar more mobile responsive */
+@media (max-width: 768px) {
+  .rbc-toolbar {
+    font-size: 12px;
+  }
+  
+  .rbc-event {
+    padding: 1px 3px;
+    font-size: 0.75em;
+  }
+  
+  .rbc-header {
+    padding: 4px 3px;
+  }
+}

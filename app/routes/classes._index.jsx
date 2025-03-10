@@ -224,10 +224,23 @@ export default function ClassesIndex() {
     setDeleteConfirmation({ isOpen: false, classId: null });
   };
 
-  const openClassModal = (classItem, editMode = false) => {
+  // Update openClassModal to always open in edit mode:
+  const openClassModal = (classItem) => {
     setSelectedClass(classItem);
-    setIsEditMode(editMode);
+    setIsEditMode(true); // Always open in editing mode so form controls are shown
     setIsModalOpen(true);
+  };
+
+  // Add a new delete handler for deletion from the modal
+  const handleDeleteFromModal = () => {
+    if (selectedClass && window.confirm("Are you sure you want to delete this class? This action cannot be undone.")) {
+      setIsRefreshing(true);
+      fetcher.submit(
+        { actionType: "delete", classId: selectedClass.id },
+        { method: "post" }
+      );
+      setIsModalOpen(false);
+    }
   };
 
   const handleClassUpdated = () => {
@@ -358,7 +371,8 @@ export default function ClassesIndex() {
               isOpen={isModalOpen}
               onClose={() => setIsModalOpen(false)}
               onSave={handleClassUpdated}
-              isEditing={isEditMode}
+              isEditing={true}
+              onDelete={handleDeleteFromModal}  // Pass the new deletion callback
             />
           )}
           

@@ -1,30 +1,82 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFetcher } from '@remix-run/react';
+import { format } from 'date-fns';
 
-export default function ClassModal({ classItem, students, isOpen, onClose, onSave, isNew = false, isEditing = false }) {
+export default function ClassModal({ 
+  classItem, 
+  students, 
+  isOpen, 
+  onClose, 
+  onSave, 
+  isNew = false, 
+  isEditing = false,
+  preselectedDate = null,
+  onDelete,
+  noDefaultStudent = false
+}) {
   const modalRef = useRef(null);
   const [isEditingState, setIsEditing] = useState(isNew || isEditing);
   const fetcher = useFetcher();
-  const [lessonRate, setLessonRate] = useState(classItem?.lessonRate || '');
-  const [selectedStudentId, setSelectedStudentId] = useState(isNew ? '' : classItem?.studentId);
   
-  // Effect to update the lesson rate when a student is selected
+  // Initialize selectedStudent based on noDefaultStudent flag
+  const initialStudentId = classItem?.studentId || 
+    (students.length > 0 && !noDefaultStudent ? students[0].id : '');
+  
+  const [selectedStudent, setSelectedStudent] = useState(initialStudentId);
+
+  // Reset selected student when modal opens/closes or when noDefaultStudent changes
   useEffect(() => {
-    if (selectedStudentId && students) {
-      const selectedStudent = students.find(s => s.id === selectedStudentId);
-      if (selectedStudent && (isNew || !classItem?.lessonRate)) {
-        setLessonRate(selectedStudent.lessonRate);
+    if (isOpen) {
+      if (classItem?.studentId) {
+        setSelectedStudent(classItem.studentId);
+      } else if (noDefaultStudent) {
+        setSelectedStudent('');
+      } else if (students.length > 0) {
+        setSelectedStudent(students[0].id);
       }
     }
-  }, [selectedStudentId, students, isNew, classItem]);
+  }, [isOpen, classItem, noDefaultStudent, students]);
+
+  // Get default lesson rate for the selected student
+  const getDefaultRate = () => {
+    if (!isNew && classItem?.lessonRate) return classItem.lessonRate;
+    
+    const student = students.find(s => s.id === selectedStudent);
+    return student ? student.lessonRate : '';
+  };
   
-  // Initialize lesson rate from class or student
+  const [customRate, setCustomRate] = useState(getDefaultRate());
+
+  // Add this effect to update the rate when classItem changes
   useEffect(() => {
-    if (!isNew && classItem) {
-      setLessonRate(classItem.lessonRate || '');
+    if (!isNew && classItem?.lessonRate !== undefined) {
+      setCustomRate(classItem.lessonRate);
     }
-  }, [isNew, classItem]);
+  }, [classItem, isNew]);
+
+  // Format date for input field
+  const formatDateForInput = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    return d.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+  };
   
+  // Format time for input field
+  const formatTimeForInput = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // Set default date and time values
+  const defaultDate = isNew 
+    ? (preselectedDate ? formatDateForInput(preselectedDate) : formatDateForInput(new Date()))
+    : formatDateForInput(classItem.date);
+
+  const defaultTime = isNew
+    ? (preselectedDate ? formatTimeForInput(preselectedDate) : '10:00')
+    : formatTimeForInput(classItem.date);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -32,18 +84,10 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
       document.body.style.overflow = 'unset';
     }
     
-    if (!isOpen) {
-      setIsEditing(isNew || isEditing);
-    }
-    
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, isNew, isEditing]);
-  
-  useEffect(() => {
-    setIsEditing(isNew || isEditing);
-  }, [isNew, isEditing]);
+  }, [isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -61,6 +105,14 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
     };
   }, [isOpen, onClose]);
 
+  // Update custom rate when student changes
+  useEffect(() => {
+    if ((isNew || isEditingState) && !classItem?.lessonRate) {
+      const student = students.find(s => s.id === selectedStudent);
+      setCustomRate(student ? student.lessonRate : '');
+    }
+  }, [selectedStudent, isNew, isEditingState, students, classItem]);
+
   const isSubmitting = fetcher.state !== "idle";
   const isSuccess = fetcher.data?.success;
   
@@ -71,51 +123,11 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
     }
   }, [isSubmitting, isSuccess, onSave, fetcher]);
 
-  const handleSubmit = (event) => {
-    // Get the date value from the form
-    const formData = new FormData(event.target);
-    const date = formData.get('date');
-    
-    console.log('CLIENT - Form submission - Raw date value:', date);
-    console.log('CLIENT - Form submission - Current browser datetime:', new Date().toString());
-    console.log('CLIENT - Form submission - All form data:', Object.fromEntries(formData.entries()));
-    
-    // Let the form submission continue normally
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    // Format as DD/MM/YYYY HH:mm
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  };
-
   if (!isOpen) return null;
   
   const modalTitle = isNew 
     ? 'Add New Class' 
-    : (isEditingState ? 'Edit Class' : `Class for ${classItem?.student?.name || 'Student'}`);
-  
-  const defaultStudentId = isNew ? '' : classItem.studentId;
-  
-  // Extract date and time from the class date
-  const classDate = isNew ? new Date() : new Date(classItem.date);
-  const defaultDate = classDate.toISOString().split('T')[0];
-  
-  // Format time as HH:MM
-  const hours = classDate.getHours().toString().padStart(2, '0');
-  const minutes = classDate.getMinutes().toString().padStart(2, '0');
-  const defaultTime = `${hours}:${minutes}`;
-  
-  const handleStudentChange = (e) => {
-    const newStudentId = e.target.value;
-    setSelectedStudentId(newStudentId);
-  };
+    : (isEditingState ? 'Edit Class' : `Class with ${classItem?.student?.name || ''}`);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
@@ -131,122 +143,104 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
           </button>
         </div>
         
-        {isEditingState || isNew ? (
-          <fetcher.Form method="post" action="/classes" onSubmit={handleSubmit}>
-            <input type="hidden" name="actionType" value={isNew ? "create" : "update"} />
-            {!isNew && <input type="hidden" name="classId" value={classItem?.id} />}
-            <div className="mb-4">
-              <label className="block mb-1">Student</label>
-              <select
-                name="studentId"
-                defaultValue={defaultStudentId}
-                onChange={handleStudentChange}
-                className="w-full border px-3 py-2"
-                required
+        <fetcher.Form method="post" action="/classes">
+          <input type="hidden" name="actionType" value={isNew ? "create" : "update"} />
+          {!isNew && <input type="hidden" name="classId" value={classItem?.id} />}
+          
+          <div className="mb-4">
+            <label className="block mb-1">Student</label>
+            <select
+              name="studentId"
+              value={selectedStudent}
+              onChange={(e) => setSelectedStudent(e.target.value)}
+              className="w-full border px-3 py-2 rounded"
+              required
+              disabled={isSubmitting}
+            >
+              {noDefaultStudent && <option value="">Select a student</option>}
+              {students.map(student => (
+                <option key={student.id} value={student.id}>{student.name}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block mb-1">Date</label>
+            <input
+              type="date"
+              name="date"
+              defaultValue={defaultDate}
+              className="w-full border px-3 py-2 rounded"
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+          
+          <div className="mb-4">
+            <label className="block mb-1">Time</label>
+            <input
+              type="time"
+              name="time"
+              defaultValue={defaultTime}
+              className="w-full border px-3 py-2 rounded"
+              required
+              disabled={isSubmitting}
+            />
+          </div>
+          
+          <div className="mb-4">
+            <label className="block mb-1">Lesson Rate</label>
+            <div className="flex items-center">
+              <span className="mr-2">$</span>
+              <input
+                type="number"
+                name="lessonRate"
+                value={customRate}
+                onChange={(e) => setCustomRate(e.target.value)}
+                className="w-full border px-3 py-2 rounded"
+                min="0"
+                disabled={isSubmitting}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Leave empty to use the student's default rate</p>
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            {!isNew && (
+              <button
+                type="button"
+                onClick={() => onDelete && onDelete()}
+                className="bg-red-500 text-white px-4 py-2 rounded flex items-center justify-center"
                 disabled={isSubmitting}
               >
-                <option value="">Select a student</option>
-                {students.map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="mb-4">
-              <label className="block mb-1">Date and Time</label>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  name="date"
-                  defaultValue={defaultDate}
-                  className="flex-grow border px-3 py-2"
-                  required
-                  disabled={isSubmitting}
-                />
-                <input
-                  type="time"
-                  name="time"
-                  defaultValue={defaultTime}
-                  className="w-24 border px-3 py-2"
-                  required
-                  disabled={isSubmitting}
-                />
-              </div>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block mb-1">Lesson Rate</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  name="lessonRate"
-                  value={lessonRate}
-                  onChange={(e) => setLessonRate(e.target.value)}
-                  className="w-full border px-3 py-2"
-                  placeholder="Override default rate"
-                  disabled={isSubmitting}
-                />
-              </div>
-              {selectedStudentId && (
-                <p className="text-sm text-gray-500 mt-1">
-                  {students.find(s => s.id === selectedStudentId)?.name}'s default rate: 
-                  {students.find(s => s.id === selectedStudentId)?.lessonRate}
-                </p>
-              )}
-            </div>
-            
-            <div className="flex justify-end gap-2">
-              {!isNew && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 border rounded"
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </button>
-              )}
-              <button
-                type="submit"
-                className="bg-blue-500 text-white px-4 py-2 rounded flex items-center justify-center"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Saving...
-                  </>
-                ) : (isNew ? 'Create Class' : 'Save')}
+                Delete
               </button>
-            </div>
-          </fetcher.Form>
-        ) : (
-          <>
-            <div className="mb-4">
-              <p className="text-gray-600">Student: {classItem.student?.name}</p>
-              <p className="text-gray-600">
-                Date & Time: {formatDate(classItem.date)}
-              </p>
-              <p className="text-gray-600">
-                Lesson Rate: {classItem.lessonRate || classItem.student?.lessonRate || 'Not set'}
-                {classItem.lessonRate !== classItem.student?.lessonRate && classItem.student?.lessonRate && 
-                  ` (Student's default: ${classItem.student.lessonRate})`}
-              </p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setIsEditing(true)}
-                className="bg-blue-500 text-white px-4 py-2 rounded"
-              >
-                Edit
-              </button>
-            </div>
-          </>
-        )}
+            )}
+            <button
+              type="button"
+              onClick={() => onClose()}
+              className="px-4 py-2 border rounded"
+              disabled={isSubmitting}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="bg-blue-500 text-white px-4 py-2 rounded flex items-center justify-center"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : (isNew ? 'Add Class' : 'Save')}
+            </button>
+          </div>
+        </fetcher.Form>
       </div>
     </div>
   );

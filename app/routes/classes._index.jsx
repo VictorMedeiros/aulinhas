@@ -1,10 +1,12 @@
-import { useLoaderData, useFetcher, useNavigate } from "@remix-run/react";
+import { useLoaderData, useFetcher, useNavigate, useNavigation } from "@remix-run/react";
 import { json, redirect } from "@remix-run/node";
 import { prisma } from "~/util/db.server";
 import { useState, useEffect } from "react";
 import ConfirmationModal from "~/components/ConfirmationModal";
 import ClassModal from "~/components/ClassModal";
 import { requireAuth } from "~/services/auth.server";
+import PageLayout from "~/components/PageLayout";
+import LoadingIndicator from "~/components/LoadingIndicator";
 
 export const loader = async ({ request }) => {
   // Require authentication and get the user
@@ -167,6 +169,8 @@ export default function ClassesIndex() {
   const { classes, students } = useLoaderData();
   const fetcher = useFetcher();
   const navigate = useNavigate();
+  const navigation = useNavigation();
+  const isLoading = navigation.state === "loading";
   const [selectedClass, setSelectedClass] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewClassModalOpen, setIsNewClassModalOpen] = useState(false);
@@ -243,88 +247,108 @@ export default function ClassesIndex() {
   };
 
   return (
-    <>
-      {isRefreshing && <LoadingOverlay />}
+    <PageLayout title="Classes">
+      {isRefreshing && <LoadingIndicator fullScreen={true} />}
       
-      <ul className="mt-4">
-        {classes.map((classItem) => (
-          <li 
-            key={classItem.id}
-            className="p-4 bg-white rounded shadow hover:shadow-lg transition-shadow flex justify-between items-center mb-4"
-          >
-            <div 
-              className="flex-grow cursor-pointer" 
-              onClick={() => openClassModal(classItem)}
+      {isLoading ? (
+        <LoadingIndicator size="large" />
+      ) : (
+        <>
+          <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-md">
+            {classes.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">
+                No classes found. Add your first class using the button below.
+              </div>
+            ) : (
+              <ul className="divide-y divide-gray-200">
+                {classes.map((classItem) => (
+                  <li 
+                    key={classItem.id}
+                    className="px-6 py-4 hover:bg-gray-50 cursor-pointer"
+                    onClick={() => openClassModal(classItem)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold text-lg">{classItem.student.name}</p>
+                        <p className="text-sm text-gray-600">{formatDate(classItem.date)}</p>
+                        {classItem.lessonRate && classItem.lessonRate !== classItem.student.lessonRate && (
+                          <p className="text-sm text-blue-600 mt-1">
+                            Custom Rate: ${classItem.lessonRate}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="text-blue-500 hover:underline mr-3"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openClassModal(classItem, true);
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="text-red-500 hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(classItem.id);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          
+          <div className="mt-6">
+            <button 
+              onClick={() => setIsNewClassModalOpen(true)} 
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <p className="font-semibold text-lg">{classItem.student.name}</p>
-              <p className="text-sm text-gray-600">{formatDate(classItem.date)}</p>
-              {classItem.lessonRate && classItem.lessonRate !== classItem.student.lessonRate && (
-                <p className="text-sm text-blue-500">
-                  Custom Rate: {classItem.lessonRate}
-                </p>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="text-blue-500 hover:underline mr-3"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openClassModal(classItem, true);
-                }}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                className="text-red-500 hover:underline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(classItem.id);
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-      
-      {selectedClass && (
-        <ClassModal
-          classItem={selectedClass}
-          students={students}
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          onSave={handleClassUpdated}
-          isEditing={isEditMode}
-        />
+              <svg xmlns="http://www.w3.org/2000/svg" className="-ml-1 mr-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+              Add Class
+            </button>
+          </div>
+          
+          {/* Modals remain the same */}
+          {selectedClass && (
+            <ClassModal
+              classItem={selectedClass}
+              students={students}
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+              onSave={handleClassUpdated}
+              isEditing={isEditMode}
+            />
+          )}
+          
+          <ClassModal
+            students={students}
+            isOpen={isNewClassModalOpen}
+            onClose={() => setIsNewClassModalOpen(false)}
+            onSave={handleClassUpdated}
+            isNew={true}
+          />
+          
+          <ConfirmationModal 
+            isOpen={deleteConfirmation.isOpen}
+            onClose={cancelDelete}
+            onConfirm={confirmDelete}
+            title="Delete Class"
+            message="Are you sure you want to delete this class? This action cannot be undone."
+            confirmText="Delete"
+            cancelText="Cancel"
+          />
+        </>
       )}
-      
-      <ClassModal
-        students={students}
-        isOpen={isNewClassModalOpen}
-        onClose={() => setIsNewClassModalOpen(false)}
-        onSave={handleClassUpdated}
-        isNew={true}
-      />
-      
-      <ConfirmationModal 
-        isOpen={deleteConfirmation.isOpen}
-        onClose={cancelDelete}
-        onConfirm={confirmDelete}
-        title="Delete Class"
-        message="Are you sure you want to delete this class? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
-      
-      <button 
-        onClick={() => setIsNewClassModalOpen(true)} 
-        className="bg-blue-500 text-white px-4 py-2 rounded"
-      >
-        Add Class
-      </button>
-    </>
+    </PageLayout>
   );
 }

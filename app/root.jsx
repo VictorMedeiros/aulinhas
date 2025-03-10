@@ -3,6 +3,8 @@ import { Links, Link, LiveReload, Meta, Outlet, Scripts, ScrollRestoration, Form
 import { json } from "@remix-run/node";
 import tailwindStylesUrl from "./tailwind.css?url";
 import { getUser } from "./services/auth.server";
+import { useState } from "react";
+import Sidebar from "./components/Sidebar";
 
 export const meta = () => [
   { charset: "utf-8" },
@@ -21,67 +23,46 @@ export const loader = async ({ request }) => {
 
 export default function App() {
   const { user } = useLoaderData();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <html lang="en">
+    <html lang="en" className="h-full bg-gray-100">
       <head>
         <Meta />
         <Links />
       </head>
-      <body className="bg-gray-100 text-gray-900">
-        <Navbar user={user} />
-        <main className="container mx-auto p-4">
-          <Outlet />
-        </main>
+      <body className="h-full">
+        {user ? (
+          <div className="min-h-full flex">
+            <Sidebar user={user} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+            <div className="flex-1 flex flex-col">
+              {/* Mobile header with menu button */}
+              <div className="md:hidden bg-white shadow p-4">
+                <button
+                  type="button"
+                  className="text-gray-500 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <span className="sr-only">Open sidebar</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              </div>
+              <main className="flex-1 overflow-auto">
+                <Outlet />
+              </main>
+            </div>
+          </div>
+        ) : (
+          <main>
+            <Outlet />
+          </main>
+        )}
         <ScrollRestoration />
         <Scripts />
         <LiveReload />
       </body>
     </html>
-  );
-}
-
-function Navbar({ user }) {
-  return (
-    <nav className="bg-white shadow">
-      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <a href="/" className="text-xl font-bold">
-          Aulinhas
-        </a>
-        <div className="flex items-center">
-          {user ? (
-            <>
-              <div className="flex items-center mr-4">
-                <Link to="/students" className="px-3 hover:underline">
-                  Students
-                </Link>
-                <Link to="/classes" className="px-3 hover:underline">
-                  Classes
-                </Link>
-                <Link to="/report" className="px-3 hover:underline">
-                  Report
-                </Link>
-              </div>
-              <div className="flex items-center">
-                <span className="mr-2 text-sm">{user.email}</span>
-                <Form method="post" action="/auth/logout">
-                  <button 
-                    type="submit" 
-                    className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition-colors"
-                    title="Sign out completely from Google and Aulinhas"
-                  >
-                    Sign Out
-                  </button>
-                </Form>
-              </div>
-            </>
-          ) : (
-            <Link to="/auth/google" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors">
-              Sign in with Google
-            </Link>
-          )}
-        </div>
-      </div>
-    </nav>
   );
 }

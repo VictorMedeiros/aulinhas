@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useLoaderData } from '@remix-run/react';
+import { useLoaderData, useNavigation } from '@remix-run/react';
 import { json } from '@remix-run/node';
 import { prisma } from '~/util/db.server';
 import MonthlyReportModal from '~/components/MonthlyReportModal';
 import { requireAuth } from '~/services/auth.server';
+import PageLayout from '~/components/PageLayout';
+import LoadingIndicator from '~/components/LoadingIndicator';
 
 export const loader = async ({ request }) => {
   // Require authentication and get the user
@@ -31,6 +33,8 @@ export default function Report() {
   const { classes } = useLoaderData();
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const navigation = useNavigation();
+  const isLoading = navigation.state === "loading";
 
   // Group classes by month
   const groupedByMonth = classes.reduce((acc, classItem) => {
@@ -68,25 +72,27 @@ export default function Report() {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Monthly Income Reports</h1>
-      
-      {monthlyReports.length === 0 ? (
-        <div className="text-center p-8 bg-gray-100 rounded">
+    <PageLayout title="Monthly Income Reports">
+      {isLoading ? (
+        <LoadingIndicator size="large" />
+      ) : monthlyReports.length === 0 ? (
+        <div className="mt-6 bg-white rounded-lg shadow p-6 text-center">
           <p className="text-gray-600">No class data available to generate reports.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {monthlyReports.map((month) => (
             <div 
               key={month.id} 
-              className="bg-white p-6 rounded-lg shadow cursor-pointer hover:shadow-lg transition-shadow"
+              className="bg-white overflow-hidden shadow rounded-lg divide-y divide-gray-200 cursor-pointer hover:shadow-md transition-shadow"
               onClick={() => openMonthDetails(month)}
             >
-              <h2 className="text-xl font-semibold text-gray-800">{month.displayName}</h2>
-              <div className="mt-2 flex justify-between items-center">
-                <div className="text-sm text-gray-600">{month.classes.length} classes</div>
-                <div className="text-xl font-bold text-green-600">${month.total}</div>
+              <div className="px-6 py-5">
+                <h3 className="text-lg font-medium text-gray-900">{month.displayName}</h3>
+              </div>
+              <div className="px-6 py-4 flex justify-between items-center">
+                <div className="text-sm text-gray-500">{month.classes.length} classes</div>
+                <div className="text-2xl font-semibold text-green-600">${month.total}</div>
               </div>
             </div>
           ))}
@@ -100,6 +106,6 @@ export default function Report() {
           onClose={() => setIsModalOpen(false)}
         />
       )}
-    </div>
+    </PageLayout>
   );
 }

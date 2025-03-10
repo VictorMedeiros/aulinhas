@@ -1,28 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFetcher } from '@remix-run/react';
+import ClassModal from './ClassModal';
 
 export default function StudentModal({ student, isOpen, onClose, onSave, isNew = false, isEditing = false }) {
   const modalRef = useRef(null);
   const [isEditingState, setIsEditing] = useState(isNew || isEditing);
   const fetcher = useFetcher();
   const [age, setAge] = useState(student?.age || "");
-  
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
-    
+
     if (!isOpen) {
       setIsEditing(isNew || isEditing);
     }
-    
+
     return () => {
       document.body.style.overflow = 'unset';
     };
   }, [isOpen, isNew, isEditing]);
-  
+
   useEffect(() => {
     setIsEditing(isNew || isEditing);
   }, [isNew, isEditing]);
@@ -37,7 +39,7 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -45,7 +47,7 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
 
   const isSubmitting = fetcher.state !== "idle";
   const isSuccess = fetcher.data?.success;
-  
+
   useEffect(() => {
     if (!isSubmitting && isSuccess && fetcher.data) {
       onSave();
@@ -55,29 +57,27 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    // Format as DD/MM/YYYY HH:mm
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    
     return `${day}/${month}/${year} ${hours}:${minutes}`;
   };
 
   if (!isOpen) return null;
-  
+
   const modalTitle = isNew 
     ? 'Add New Student' 
     : (isEditingState ? 'Edit Student' : student.name);
-  
+
   const defaultName = isNew ? '' : student.name;
   const defaultRate = isNew ? 100 : student.lessonRate;
   const defaultAge = isNew ? '' : student.age;
-  
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div ref={modalRef} className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div ref={modalRef} className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">{modalTitle}</h2>
           <button 
@@ -194,6 +194,12 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
             </div>
             <div className="flex justify-end gap-2">
               <button
+                onClick={() => setIsClassModalOpen(true)}
+                className="bg-green-500 text-white px-4 py-2 rounded"
+              >
+                Add Class
+              </button>
+              <button
                 onClick={() => setIsEditing(true)}
                 className="bg-blue-500 text-white px-4 py-2 rounded"
               >
@@ -203,6 +209,24 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
           </>
         )}
       </div>
+      {isClassModalOpen && (
+        <ClassModal
+          isOpen={isClassModalOpen}
+          onClose={() => setIsClassModalOpen(false)}
+          onSave={() => {
+            setIsClassModalOpen(false);
+            onSave(); // Refresh parent component
+          }}
+          isNew={true}
+          students={[student]} // Pass current student as the only option
+          classItem={{
+            studentId: student.id,
+            date: new Date(),
+            lessonRate: student.lessonRate, // Add the student's lesson rate
+            student: student // Add the full student object
+          }}
+        />
+      )}
     </div>
   );
 }

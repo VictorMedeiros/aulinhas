@@ -9,6 +9,7 @@ import { requireAuth } from "~/services/auth.server";
 import PageLayout from "~/components/PageLayout";
 import LoadingIndicator from "~/components/LoadingIndicator";
 import { useToast } from "~/components/ToastProvider";
+import ClassModal from "~/components/ClassModal";
 
 export const loader = async ({ request }) => {
   // Require authentication and get the user
@@ -141,6 +142,8 @@ export default function StudentsIndex() {
     isOpen: false,
     studentId: null
   });
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const [selectedStudentForClass, setSelectedStudentForClass] = useState(null);
 
   useEffect(() => {
     if (fetcher.state === "idle" && isRefreshing) {
@@ -196,6 +199,12 @@ export default function StudentsIndex() {
     setIsRefreshing(true);
   };
 
+  const openClassModal = (student) => {
+    setSelectedStudentForClass(student)
+    console.log("valor da variavel student", student)// teste
+    setIsClassModalOpen(true);
+  };
+
   return (
     <PageLayout title="Students">
       {isRefreshing && <LoadingIndicator fullScreen={true} />}
@@ -234,6 +243,16 @@ export default function StudentsIndex() {
                           <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
                         </svg>
                         {student.classes?.length || 0} classes
+                        <button
+                          type="button"
+                          className="ml-2 text-green-500 hover:text-green-700 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openClassModal(student);
+                          }}
+                        >
+                          Add Class
+                        </button>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -310,6 +329,16 @@ export default function StudentsIndex() {
             confirmText="Delete"
             cancelText="Cancel"
           />
+
+          {selectedStudentForClass && (
+                  <ClassModal
+                    isOpen={isClassModalOpen}
+                    onClose={() => setIsClassModalOpen(false)}
+                    onSave={handleStudentUpdated}
+                    students={selectedStudentForClass}
+                    isNew={true}
+                  />
+          )}
         </>
       )}
     </PageLayout>

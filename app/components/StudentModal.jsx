@@ -77,7 +77,7 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-      <div ref={modalRef} className="bg-white rounded-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      <div ref={modalRef} className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">{modalTitle}</h2>
           <button 
@@ -194,12 +194,6 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
             </div>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setIsClassModalOpen(true)}
-                className="bg-green-500 text-white px-4 py-2 rounded"
-              >
-                Add Class
-              </button>
-              <button
                 onClick={() => setIsEditing(true)}
                 className="bg-blue-500 text-white px-4 py-2 rounded"
               >
@@ -222,7 +216,7 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
           classItem={{
             studentId: student.id,
             date: new Date(),
-            lessonRate: student.lessonRate, // Add the student's lesson rate
+            lessonRate: 100, // Add the student's lesson rate
             student: student // Add the full student object
           }}
         />

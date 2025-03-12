@@ -8,6 +8,8 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
   const [lessonRate, setLessonRate] = useState(classItem?.lessonRate || '');
   const [selectedStudentId, setSelectedStudentId] = useState(isNew ? '' : classItem?.studentId);
   
+  const defaultStudentId = isNew ? "" : (classItem ? classItem.studentId : "");
+  
   // Effect to update the lesson rate when a student is selected
   useEffect(() => {
     if (selectedStudentId && students) {
@@ -22,8 +24,10 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
   useEffect(() => {
     if (!isNew && classItem) {
       setLessonRate(classItem.lessonRate || '');
+    } else if (students && students.length > 0) {
+      setLessonRate(students[0].lessonRate || '');
     }
-  }, [isNew, classItem]);
+  }, [isNew, classItem, students]);
   
   useEffect(() => {
     if (isOpen) {
@@ -101,8 +105,6 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
     ? 'Add New Class' 
     : (isEditingState ? 'Edit Class' : `Class for ${classItem?.student?.name || 'Student'}`);
   
-  const defaultStudentId = isNew ? '' : classItem.studentId;
-  
   // Extract date and time from the class date
   const classDate = isNew ? new Date() : new Date(classItem.date);
   const defaultDate = classDate.toISOString().split('T')[0];
@@ -145,12 +147,22 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
                 required
                 disabled={isSubmitting}
               >
-                <option value="">Select a student</option>
-                {students.map((student) => (
-                  <option key={student.id} value={student.id}>
-                    {student.name}
+                {students.length > 1 && (
+                  <option value="">Select a student</option>
+                )}
+                
+                {Array.isArray(students) ? (
+                  
+                  students.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value={students.id} selected>
+                    {students.name}
                   </option>
-                ))}
+                )}
               </select>
             </div>
             <div className="mb-4">

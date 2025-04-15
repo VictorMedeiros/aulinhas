@@ -132,6 +132,20 @@ export default function StudentModal({ student, isOpen, onClose, onSave, isNew =
                 disabled={isSubmitting}
               />
             </div>
+            <div className="mb-4">
+              <label className="block mb-1">Phone Number (WhatsApp)</label>
+              <input
+                type="tel"
+                name="phoneNumber"
+                defaultValue={student?.phoneNumber || ''}
+                className="w-full border px-3 py-2 rounded"
+                placeholder="+1234567890"
+                pattern="^\+?[1-9]\d{1,14}$"
+                title="Please enter a valid international phone number (e.g., +1234567890)"
+                disabled={isSubmitting}
+              />
+              <p className="text-xs text-gray-500 mt-1">Enter number in international format (e.g., +1234567890)</p>
+            </div>
             <div className="flex justify-end gap-2">
               {!isNew && (
                 <button

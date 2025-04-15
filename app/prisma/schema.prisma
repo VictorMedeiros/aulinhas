@@ -20,6 +20,7 @@ model Student {
   name       String
   lessonRate Int
   age        Int?
+  phoneNumber String?
   userId     String   // Foreign key to User
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   classes    Class[]

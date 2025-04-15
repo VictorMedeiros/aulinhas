@@ -32,12 +32,11 @@ export const loader = async ({ request }) => {
   return json({ students, user });
 };
 
-export const action = async ({ request }) => {
-  // Require authentication and get the user
+export async function action({ request }) {
   const user = await requireAuth(request);
   const form = await request.formData();
   const actionType = form.get("actionType");
-  
+
   // Handle delete operation
   if (actionType === "delete" || form.has("deleteId")) {
     const deleteId = form.get("deleteId") || form.get("studentId");
@@ -56,76 +55,52 @@ export const action = async ({ request }) => {
       return json({ success: true });
     }
   }
-  
-  // Handle create operation
-  else if (actionType === "create") {
-    const name = form.get("name");
-    const lessonRate = form.get("lessonRate");
-    const age = form.get("age");
 
-    if (typeof name !== "string" || typeof lessonRate !== "string") {
-      return json({ success: false, error: "Invalid data." }, { status: 400 });
-    }
+  try {
+    const name = form.get("name")?.trim();
+    const age = form.get("age") ? parseInt(form.get("age"), 10) : null;
+    const lessonRate = parseInt(form.get("lessonRate"), 10);
+    const phoneNumber = form.get("phoneNumber")?.trim() || null;
 
-    try {
-      const newStudent = await prisma.student.create({
-        data: { 
-          name, 
-          lessonRate: parseInt(lessonRate), 
-          age: age ? parseInt(age) : null,
-          userId: user.id // Associate with the authenticated user
-        },
-      });
-      return json({ success: true, student: newStudent });
-    } catch (error) {
+    // Validate phone number if provided
+    if (phoneNumber && !/^\+?[1-9]\d{1,14}$/.test(phoneNumber)) {
       return json({ 
         success: false, 
-        error: "Failed to create student" 
-      }, { status: 500 });
-    }
-  }
-  
-  // Handle update operation
-  else if (actionType === "update") {
-    const studentId = form.get("studentId");
-    const name = form.get("name");
-    const lessonRate = form.get("lessonRate");
-    const age = form.get("age");
-
-    if (typeof studentId !== "string" || typeof name !== "string" || typeof lessonRate !== "string") {
-      return json({ success: false, error: "Invalid data." }, { status: 400 });
+        error: "Invalid phone number format. Please use international format (e.g., +1234567890)" 
+      }, { status: 400 });
     }
 
-    // Verify ownership of the student
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-      select: { userId: true }
-    });
-    
-    if (!student || student.userId !== user.id) {
-      return json({ success: false, error: "Unauthorized" }, { status: 403 });
-    }
-
-    try {
-      const updatedStudent = await prisma.student.update({
+    if (actionType === "create") {
+      await prisma.student.create({
+        data: {
+          name,
+          age,
+          lessonRate,
+          phoneNumber,
+          userId: user.id
+        }
+      });
+    } else if (actionType === "update") {
+      const studentId = form.get("studentId");
+      await prisma.student.update({
         where: { id: studentId },
-        data: { 
-          name, 
-          lessonRate: parseInt(lessonRate), 
-          age: age ? parseInt(age) : null
-        },
+        data: {
+          name,
+          age,
+          lessonRate,
+          phoneNumber
+        }
       });
-      return json({ success: true, student: updatedStudent });
-    } catch (error) {
-      return json({ 
-        success: false, 
-        error: "Failed to update student" 
-      }, { status: 500 });
     }
+  } catch (error) {
+    return json({ 
+      success: false, 
+      error: "Failed to process the request" 
+    }, { status: 500 });
   }
 
   // Handle create recurring classes operation
-  else if (actionType === "createRecurring") {
+  if (actionType === "createRecurring") {
     const studentId = form.get("studentId");
     const days = JSON.parse(form.get("days"));
     const time = form.get("time");

@@ -10,6 +10,7 @@ import PageLayout from "~/components/PageLayout";
 import LoadingIndicator from "~/components/LoadingIndicator";
 import { useToast } from "~/components/ToastProvider";
 import ClassModal from "~/components/ClassModal";
+import RecurringClassesModal from "~/components/RecurringClassesModal";
 
 export const loader = async ({ request }) => {
   // Require authentication and get the user
@@ -122,6 +123,64 @@ export const action = async ({ request }) => {
       }, { status: 500 });
     }
   }
+
+  // Handle create recurring classes operation
+  else if (actionType === "createRecurring") {
+    const studentId = form.get("studentId");
+    const days = JSON.parse(form.get("days"));
+    const time = form.get("time");
+    const weeks = parseInt(form.get("weeks"), 10);
+    const lessonRate = parseInt(form.get("lessonRate"), 10);
+
+    if (!studentId || !Array.isArray(days) || !time || !weeks) {
+      return json({ success: false, error: "Invalid data." }, { status: 400 });
+    }
+
+    // Verify student belongs to user
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+      select: { userId: true }
+    });
+
+    if (!student || student.userId !== user.id) {
+      return json({ success: false, error: "Unauthorized" }, { status: 403 });
+    }
+
+    try {
+      const [hours, minutes] = time.split(':').map(Number);
+      const classes = [];
+      const today = new Date();
+      
+      // Create classes for each selected day for the specified number of weeks
+      for (let week = 0; week < weeks; week++) {
+        for (const dayOfWeek of days) {
+          const date = new Date(today);
+          date.setDate(date.getDate() + (dayOfWeek - date.getDay() + 7 * week));
+          date.setHours(hours, minutes, 0, 0);
+
+          if (date > today) {  // Only create future classes
+            classes.push({
+              studentId,
+              date,
+              lessonRate
+            });
+          }
+        }
+      }
+
+      await prisma.class.createMany({
+        data: classes
+      });
+
+      return json({ success: true });
+    } catch (error) {
+      console.error("Error creating recurring classes:", error);
+      return json({ 
+        success: false, 
+        error: "Failed to create recurring classes" 
+      }, { status: 500 });
+    }
+  }
   
   return redirect("/students");
 };
@@ -144,6 +203,8 @@ export default function StudentsIndex() {
   });
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [selectedStudentForClass, setSelectedStudentForClass] = useState(null);
+  const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
+  const [selectedStudentForRecurring, setSelectedStudentForRecurring] = useState(null);
 
   useEffect(() => {
     if (fetcher.state === "idle" && isRefreshing) {
@@ -203,6 +264,11 @@ export default function StudentsIndex() {
     setSelectedStudentForClass(student)
     console.log("valor da variavel student", student)// teste
     setIsClassModalOpen(true);
+  };
+
+  const openRecurringModal = (student) => {
+    setSelectedStudentForRecurring(student);
+    setIsRecurringModalOpen(true);
   };
 
   return (
@@ -282,6 +348,19 @@ export default function StudentsIndex() {
                         </svg>
                         Delete
                       </button>
+                      <button
+                        type="button"
+                        className="text-purple-500 hover:text-purple-700 transition-colors flex items-center"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openRecurringModal(student);
+                        }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                        </svg>
+                        Recurring Classes
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -338,6 +417,15 @@ export default function StudentsIndex() {
                     students={selectedStudentForClass}
                     isNew={true}
                   />
+          )}
+
+          {selectedStudentForRecurring && (
+            <RecurringClassesModal
+              student={selectedStudentForRecurring}
+              isOpen={isRecurringModalOpen}
+              onClose={() => setIsRecurringModalOpen(false)}
+              onSave={handleStudentUpdated}
+            />
           )}
         </>
       )}

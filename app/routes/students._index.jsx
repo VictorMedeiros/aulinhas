@@ -11,6 +11,7 @@ import LoadingIndicator from "~/components/LoadingIndicator";
 import { useToast } from "~/components/ToastProvider";
 import ClassModal from "~/components/ClassModal";
 import RecurringClassesModal from "~/components/RecurringClassesModal";
+import WhatsAppMessageModal from "~/components/WhatsAppMessageModal";
 
 export const loader = async ({ request }) => {
   // Require authentication and get the user
@@ -180,6 +181,7 @@ export default function StudentsIndex() {
   const [selectedStudentForClass, setSelectedStudentForClass] = useState(null);
   const [isRecurringModalOpen, setIsRecurringModalOpen] = useState(false);
   const [selectedStudentForRecurring, setSelectedStudentForRecurring] = useState(null);
+  const [whatsappModal, setWhatsappModal] = useState({ isOpen: false, student: null });
 
   useEffect(() => {
     if (fetcher.state === "idle" && isRefreshing) {
@@ -336,6 +338,19 @@ export default function StudentsIndex() {
                         </svg>
                         Recurring Classes
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setWhatsappModal({ isOpen: true, student })}
+                        className="text-green-500 hover:text-green-700 transition-colors flex items-center"
+                        disabled={!student.phoneNumber}
+                        title={student.phoneNumber ? "Send WhatsApp message" : "No phone number available"}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                          <path d="M12 0C5.373 0 0 5.373 0 12c0 6.627 5.373 12 12 12s12-5.373 12-12c0-6.627-5.373-12-12-12zm6.357 16.357c-.982.982-2.162 1.753-3.453 2.289a1 1 0 0 1-1.072-.206l-1.486-1.486a11.863 11.863 0 0 1-1.658-.824c-2.981-1.287-4.928-4.289-5.077-4.487-.148-.199-1.213-1.612-1.213-3.074 0-1.463.768-2.182 1.04-2.479.222-.298.494-.372.692-.372.199 0 .397.002.57.01.182.01.427-.069.669.51.247.595.841 2.058.916 2.207.075.149.124.322.025.52-.1.199-.149.323-.298.497-.148.173-.312.387-.446.52-.148.148-.303.309-.13.606.173.298.77 1.271 1.653 2.059 1.135 1.012 2.093 1.325 2.39 1.475.297.148.471.124.644-.075.173-.198.743-.867.94-1.164.199-.298.397-.249.67-.15.272.1 1.733.818 2.03.967.298.149.496.223.57.347.075.124.075.719-.173 1.413z"/>
+                        </svg>
+                        Message
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -400,6 +415,14 @@ export default function StudentsIndex() {
               isOpen={isRecurringModalOpen}
               onClose={() => setIsRecurringModalOpen(false)}
               onSave={handleStudentUpdated}
+            />
+          )}
+
+          {whatsappModal.isOpen && (
+            <WhatsAppMessageModal
+              student={whatsappModal.student}
+              isOpen={whatsappModal.isOpen}
+              onClose={() => setWhatsappModal({ isOpen: false, student: null })}
             />
           )}
         </>

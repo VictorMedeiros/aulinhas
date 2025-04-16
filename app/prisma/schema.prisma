@@ -32,4 +32,12 @@ model Class {
   student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   date       DateTime
   lessonRate Int?     // Nullable lesson rate that can override student's rate
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentDate DateTime?
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  LATE
 }

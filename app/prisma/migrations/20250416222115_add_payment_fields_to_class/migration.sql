@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `Class` ADD COLUMN `paymentDate` DATETIME(3) NULL,
+    ADD COLUMN `paymentStatus` ENUM('PAID', 'PENDING', 'LATE') NOT NULL DEFAULT 'PENDING';

@@ -207,6 +207,37 @@ export default function ClassModal({ classItem, students, isOpen, onClose, onSav
                 </p>
               )}
             </div>
+
+            <div className="mt-4 mb-8">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Payment Status
+              </label>
+              <select
+                name="paymentStatus"
+                defaultValue={classItem?.paymentStatus || 'PENDING'}
+                onChange={(e) => {
+                  fetcher.submit(
+                    {
+                      actionType: "updatePaymentStatus",
+                      classId: classItem.id,
+                      paymentStatus: e.target.value
+                    },
+                    { method: "post" }
+                  );
+                }}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                disabled={isSubmitting}
+              >
+                <option value="PENDING">Pending</option>
+                <option value="PAID">Paid</option>
+                <option value="LATE">Late</option>
+              </select>
+              {classItem?.paymentStatus === 'PAID' && classItem.paymentDate && (
+                <p className="mt-1 text-sm text-gray-500">
+                  Paid on: {new Date(classItem.paymentDate).toLocaleDateString()}
+                </p>
+              )}
+            </div>
             
             <div className="flex justify-end gap-2">
               {!isNew && (

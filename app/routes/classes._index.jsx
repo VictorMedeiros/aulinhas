@@ -162,6 +162,50 @@ export const action = async ({ request }) => {
       }, { status: 500 });
     }
   }
+
+  // Handle update payment status operation
+  else if (actionType === "updatePaymentStatus") {
+    const classId = form.get("classId");
+    const paymentStatus = form.get("paymentStatus");
+    
+    if (!classId || !paymentStatus) {
+      return json({ 
+        success: false, 
+        error: "Missing required fields" 
+      }, { status: 400 });
+    }
+
+    // Verify class belongs to user's student
+    const classItem = await prisma.class.findUnique({
+      where: { id: classId },
+      include: { student: true }
+    });
+
+    if (!classItem || classItem.student.userId !== user.id) {
+      return json({ 
+        success: false, 
+        error: "Unauthorized" 
+      }, { status: 403 });
+    }
+
+    try {
+      const updatedClass = await prisma.class.update({
+        where: { id: classId },
+        data: {
+          paymentStatus,
+          paymentDate: paymentStatus === "PAID" ? new Date() : null
+        }
+      });
+
+      return json({ success: true, class: updatedClass });
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      return json({ 
+        success: false, 
+        error: "Failed to update payment status" 
+      }, { status: 500 });
+    }
+  }
   
   return redirect("/classes");
 };
@@ -302,6 +346,19 @@ export default function ClassesIndex() {
                             Custom Rate: ${classItem.lessonRate}
                           </p>
                         )}
+                        {/* Add payment status indicator */}
+                        <p className={`text-sm ${
+                          classItem.paymentStatus === 'PAID' ? 'text-green-600' : 
+                          classItem.paymentStatus === 'LATE' ? 'text-red-600' : 
+                          'text-yellow-600'
+                        } mt-1 flex items-center`}>
+                          <svg className="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          {classItem.paymentStatus}
+                          {classItem.paymentStatus === 'PAID' && classItem.paymentDate && 
+                            ` (${new Date(classItem.paymentDate).toLocaleDateString()})`}
+                        </p>
                       </div>
                       <div className="flex gap-2">
                         <button

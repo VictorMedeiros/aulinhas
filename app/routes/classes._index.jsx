@@ -8,6 +8,7 @@ import { requireAuth } from "~/services/auth.server";
 import PageLayout from "~/components/PageLayout";
 import LoadingIndicator from "~/components/LoadingIndicator";
 import { useToast } from "~/components/ToastProvider";
+import FilterStudentsModal from "~/components/FilterStudentsModal";
 
 export const loader = async ({ request }) => {
   // Require authentication and get the user
@@ -222,10 +223,12 @@ export default function ClassesIndex() {
   const [isNewClassModalOpen, setIsNewClassModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
     classId: null
   });
+  const [selectedStudents, setSelectedStudents] = useState([]);
 
   useEffect(() => {
     if (fetcher.state === "idle" && isRefreshing) {
@@ -304,16 +307,39 @@ export default function ClassesIndex() {
     return `${day}/${month}/${year} ${hours}:${minutes}`;
   };
 
+  const filteredClasses = classes.filter(classItem => 
+    selectedStudents.length === 0 || selectedStudents.includes(classItem.student.id)
+  );
+
   return (
     <PageLayout title="Classes">
       {isRefreshing && <LoadingIndicator fullScreen={true} />}
       
       {isLoading ? (
-        <LoadingIndicator size="large" />
+        <LoadingIndicator size="big" />
       ) : (
         <>
+          <div className="mt-4 flex justify-between items-center">
+            <div>
+              <span className="text-sm text-gray-600">
+                Showing: {selectedStudents.length === 0 
+                  ? 'All Students' 
+                  : `${selectedStudents.length} Selected`}
+              </span>
+            </div>
+            <button
+              onClick={() => setIsFilterModalOpen(true)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
+              </svg>
+              Filter Students
+            </button>
+          </div>
+
           <div className="mt-6 bg-white shadow overflow-hidden rounded-lg transition-all duration-200 hover:shadow-md">
-            {classes.length === 0 ? (
+            {filteredClasses.length === 0 ? (
               <div className="p-6 text-center text-gray-500">
                 <svg className="mx-auto h-12 w-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -322,7 +348,7 @@ export default function ClassesIndex() {
               </div>
             ) : (
               <ul className="divide-y divide-gray-200">
-                {classes.map((classItem) => (
+                {filteredClasses.map((classItem) => (
                   <li 
                     key={classItem.id}
                     className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
@@ -407,7 +433,17 @@ export default function ClassesIndex() {
             </button>
           </div>
           
-          {/* Modals remain the same */}
+          <FilterStudentsModal
+            isOpen={isFilterModalOpen}
+            onClose={() => setIsFilterModalOpen(false)}
+            students={students}
+            selectedStudents={selectedStudents}
+            onSave={(selected) => {
+              setSelectedStudents(selected);
+              setIsFilterModalOpen(false);
+            }}
+          />
+          
           {selectedClass && (
             <ClassModal
               classItem={selectedClass}

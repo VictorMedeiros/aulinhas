@@ -203,8 +203,82 @@ export const action = async ({ request }) => {
       console.error("Error updating payment status:", error);
       return json({ 
         success: false, 
-        error: "Failed to update payment status" 
-      }, { status: 500 });
+        error: "Failed to update payment status" }, { status: 500 });
+    }
+  }
+
+  // Handle bulk update payment status operation
+  else if (actionType === "bulkUpdatePaymentStatus") {
+    const classIds = form.get("classIds").split(',');
+    const paymentStatus = form.get("paymentStatus");
+    
+    if (!classIds.length || !paymentStatus) {
+      return json({ success: false, error: "Missing required fields" }, { status: 400 });
+    }
+
+    try {
+      // Verify all classes belong to user's students
+      const classes = await prisma.class.findMany({
+        where: { id: { in: classIds } },
+        include: { student: true }
+      });
+      
+      // Check if all classes belong to the user
+      const unauthorized = classes.some(classItem => classItem.student.userId !== user.id);
+      if (unauthorized) {
+        return json({ success: false, error: "Unauthorized" }, { status: 403 });
+      }
+      
+      // Update all classes at once
+      const results = await prisma.$transaction(
+        classIds.map(id => 
+          prisma.class.update({
+            where: { id },
+            data: {
+              paymentStatus,
+              paymentDate: paymentStatus === "PAID" ? new Date() : null
+            }
+          })
+        )
+      );
+      
+      return json({ success: true, count: results.length });
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      return json({ success: false, error: "Failed to update payment statuses" }, { status: 500 });
+    }
+  }
+
+  // Handle bulk delete operation
+  else if (actionType === "bulkDelete") {
+    const classIds = form.get("classIds").split(',');
+    
+    if (!classIds.length) {
+      return json({ success: false, error: "No classes selected" }, { status: 400 });
+    }
+
+    try {
+      // Verify all classes belong to user's students
+      const classes = await prisma.class.findMany({
+        where: { id: { in: classIds } },
+        include: { student: true }
+      });
+      
+      // Check if all classes belong to the user
+      const unauthorized = classes.some(classItem => classItem.student.userId !== user.id);
+      if (unauthorized) {
+        return json({ success: false, error: "Unauthorized" }, { status: 403 });
+      }
+      
+      // Delete all classes at once
+      const result = await prisma.class.deleteMany({
+        where: { id: { in: classIds } }
+      });
+      
+      return json({ success: true, count: result.count });
+    } catch (error) {
+      console.error("Error deleting classes:", error);
+      return json({ success: false, error: "Failed to delete classes" }, { status: 500 });
     }
   }
   
@@ -219,6 +293,7 @@ export default function ClassesIndex() {
   const toast = useToast();
   const isLoading = navigation.state === "loading";
   const [selectedClass, setSelectedClass] = useState(null);
+  const [selectedClasses, setSelectedClasses] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewClassModalOpen, setIsNewClassModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -226,7 +301,8 @@ export default function ClassesIndex() {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
-    classId: null
+    classId: null,
+    bulkDelete: false
   });
   const [selectedStudents, setSelectedStudents] = useState([]);
 
@@ -252,23 +328,36 @@ export default function ClassesIndex() {
   const handleDelete = (classId) => {
     setDeleteConfirmation({
       isOpen: true,
-      classId: classId
+      classId: classId,
+      bulkDelete: false
     });
   };
 
   const confirmDelete = () => {
-    if (deleteConfirmation.classId) {
+    if (deleteConfirmation.bulkDelete) {
+      // Bulk delete
+      setIsRefreshing(true);
+      fetcher.submit(
+        { 
+          actionType: "bulkDelete", 
+          classIds: selectedClasses.join(',') 
+        },
+        { method: "post" }
+      );
+      setSelectedClasses([]);
+    } else if (deleteConfirmation.classId) {
+      // Single delete
       setIsRefreshing(true);
       fetcher.submit(
         { actionType: "delete", classId: deleteConfirmation.classId }, 
         { method: "post" }
       );
-      setDeleteConfirmation({ isOpen: false, classId: null });
     }
+    setDeleteConfirmation({ isOpen: false, classId: null, bulkDelete: false });
   };
 
   const cancelDelete = () => {
-    setDeleteConfirmation({ isOpen: false, classId: null });
+    setDeleteConfirmation({ isOpen: false, classId: null, bulkDelete: false });
   };
 
   const openClassModal = (classItem, editMode = false) => {
@@ -295,6 +384,31 @@ export default function ClassesIndex() {
     </div>
   );
 
+  const toogleClassSelection = (classId, event) => {
+    event.stopPropagation();
+    setSelectedClasses((prevSelected) => {
+      if (prevSelected.includes(classId)) {
+        return prevSelected.filter((id) => id !== classId);
+      } else {
+        return [...prevSelected, classId];
+      }
+    });
+  }
+
+  const toggleSelectAll = () => {
+    const filteredClassIds = filteredClasses.map(classItem => classItem.id);
+    if (filteredClasses.length > 0 && filteredClassIds.every(id => selectedClasses.includes(id))) {
+      setSelectedClasses(prevSelected =>
+        prevSelected.filter(id => !filteredClassIds.includes(id))
+      );
+    } else {
+      setSelectedClasses(prevSelected => {
+        const newSelection = new Set([...prevSelected, ...filteredClassIds]);
+        return Array.from(newSelection)
+      });
+    }
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     // Format as DD/MM/YYYY HH:mm
@@ -310,6 +424,19 @@ export default function ClassesIndex() {
   const filteredClasses = classes.filter(classItem => 
     selectedStudents.length === 0 || selectedStudents.includes(classItem.student.id)
   );
+
+  const updateBulkPaymentStatus = (status) => {
+    setIsRefreshing(true);
+    fetcher.submit(
+      { 
+        actionType: "bulkUpdatePaymentStatus", 
+        classIds: selectedClasses.join(','), 
+        paymentStatus: status 
+      },
+      { method: "post" }
+    );
+    setSelectedClasses([]);
+  };
 
   return (
     <PageLayout title="Classes">
@@ -339,6 +466,69 @@ export default function ClassesIndex() {
           </div>
 
           <div className="mt-6 bg-white shadow overflow-hidden rounded-lg transition-all duration-200 hover:shadow-md">
+            <div className="mt-2 px-6 py-2 flex justify-between items-center border-b border-gray-200">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                  checked={filteredClasses.length > 0 && filteredClasses.every(classItem => 
+                    selectedClasses.includes(classItem.id)
+                  )}
+                  onChange={toggleSelectAll}
+                />
+                <span className="ml-4 text-sm text-gray-600">
+                  {filteredClasses.length > 0 && filteredClasses.every(classItem => 
+                    selectedClasses.includes(classItem.id)
+                  ) 
+                    ? "Deselect All" 
+                    : "Select All"
+                  }
+                </span>
+              </div>
+              
+              {/* Bulk actions UI - only visible when classes are selected */}
+              {selectedClasses.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">{selectedClasses.length} selected</span>
+                  
+                  <button 
+                    className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-800 rounded-md text-sm hover:bg-yellow-200"
+                    onClick={() => updateBulkPaymentStatus("PENDING")}
+                  >
+                    Set Pending
+                  </button>
+                  
+                  <button 
+                    className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-md text-sm hover:bg-green-200"
+                    onClick={() => updateBulkPaymentStatus("PAID")}
+                  >
+                    Set Paid
+                  </button>
+                  
+                  <button 
+                    className="inline-flex items-center px-3 py-1 bg-red-100 text-red-800 rounded-md text-sm hover:bg-red-200"
+                    onClick={() => updateBulkPaymentStatus("LATE")}
+                  >
+                    Set Late
+                  </button>
+                  
+                  {/* Add the bulk delete button */}
+                  <button 
+                    className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-800 rounded-md text-sm hover:bg-gray-200"
+                    onClick={() => setDeleteConfirmation({
+                      isOpen: true,
+                      bulkDelete: true,
+                      classId: null
+                    })}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
             {filteredClasses.length === 0 ? (
               <div className="p-6 text-center text-gray-500">
                 <svg className="mx-auto h-12 w-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -354,39 +544,52 @@ export default function ClassesIndex() {
                     className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
                     onClick={() => openClassModal(classItem)}
                   >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold text-lg text-gray-900">{classItem.student.name}</p>
-                        <p className="text-sm text-gray-600 flex items-center">
-                          <svg className="h-4 w-4 mr-1 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                          </svg>
-                          {formatDate(classItem.date)}
-                        </p>
-                        {classItem.lessonRate && classItem.lessonRate !== classItem.student.lessonRate && (
-                          <p className="text-sm text-blue-600 mt-1 flex items-center">
-                            <svg className="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                    <div className="flex items-start justify-between w-full">
+                      {/* Left side: Checkbox and class info */}
+                      <div className="flex items-start">
+                        <div className="mr-3 pt-1" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            checked={selectedClasses.includes(classItem.id)}
+                            onChange={(e) => toogleClassSelection(classItem.id, e)}
+                          />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-lg text-gray-900">{classItem.student.name}</p>
+                          <p className="text-sm text-gray-600 flex items-center">
+                            <svg className="h-4 w-4 mr-1 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                             </svg>
-                            Custom Rate: ${classItem.lessonRate}
+                            {formatDate(classItem.date)}
                           </p>
-                        )}
-                        {/* Add payment status indicator */}
-                        <p className={`text-sm ${
-                          classItem.paymentStatus === 'PAID' ? 'text-green-600' : 
-                          classItem.paymentStatus === 'LATE' ? 'text-red-600' : 
-                          'text-yellow-600'
-                        } mt-1 flex items-center`}>
-                          <svg className="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          {classItem.paymentStatus}
-                          {classItem.paymentStatus === 'PAID' && classItem.paymentDate && 
-                            ` (${new Date(classItem.paymentDate).toLocaleDateString()})`}
-                        </p>
+                          {classItem.lessonRate && classItem.lessonRate !== classItem.student.lessonRate && (
+                            <p className="text-sm text-blue-600 mt-1 flex items-center">
+                              <svg className="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+                              </svg>
+                              Custom Rate: ${classItem.lessonRate}
+                            </p>
+                          )}
+                          {/* Add payment status indicator */}
+                          <p className={`text-sm ${
+                            classItem.paymentStatus === 'PAID' ? 'text-green-600' : 
+                            classItem.paymentStatus === 'LATE' ? 'text-red-600' : 
+                            'text-yellow-600'
+                          } mt-1 flex items-center`}>
+                            <svg className="h-4 w-4 mr-1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            {classItem.paymentStatus}
+                            {classItem.paymentStatus === 'PAID' && classItem.paymentDate && 
+                              ` (${new Date(classItem.paymentDate).toLocaleDateString()})`}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
+                      
+                      {/* Right side: Action buttons */}
+                      <div className="flex gap-2 flex-shrink-0">
                         <button
                           type="button"
                           className="text-blue-500 hover:text-blue-700 transition-colors flex items-center"
@@ -467,8 +670,10 @@ export default function ClassesIndex() {
             isOpen={deleteConfirmation.isOpen}
             onClose={cancelDelete}
             onConfirm={confirmDelete}
-            title="Delete Class"
-            message="Are you sure you want to delete this class? This action cannot be undone."
+            title={deleteConfirmation.bulkDelete ? "Delete Multiple Classes" : "Delete Class"}
+            message={deleteConfirmation.bulkDelete 
+              ? `Are you sure you want to delete ${selectedClasses.length} classes? This action cannot be undone.`
+              : "Are you sure you want to delete this class? This action cannot be undone."}
             confirmText="Delete"
             cancelText="Cancel"
           />
